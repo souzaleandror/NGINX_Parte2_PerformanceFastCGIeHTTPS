@@ -1,0 +1,7 @@
+Remoto Addr: -, Time: [24/Aug/2023:23:22:32 +0200], Request: "GET / HTTP/1.1" Status: 200
+Remoto Addr: -, Time: [24/Aug/2023:23:22:32 +0200], Request: "GET /favicon.ico HTTP/1.1" Status: 404
+Remoto Addr: 127.0.0.1, Time: [24/Aug/2023:23:23:34 +0200], Request: "GET / HTTP/1.0" Status: 200
+Remoto Addr: -, Time: [24/Aug/2023:23:23:37 +0200], Request: "GET / HTTP/1.1" Status: 200
+Remoto Addr: 127.0.0.1, Time: [24/Aug/2023:23:23:38 +0200], Request: "GET / HTTP/1.0" Status: 200
+Remoto Addr: 127.0.0.1, Time: [24/Aug/2023:23:23:40 +0200], Request: "GET / HTTP/1.0" Status: 200
+Remoto Addr: 127.0.0.1, Time: [24/Aug/2023:23:23:41 +0200], Request: "GET / HTTP/1.0" Status: 200
