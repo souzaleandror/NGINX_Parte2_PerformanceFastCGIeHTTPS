@@ -226,3 +226,153 @@ Nesta aula, aprendemos:
 Aprendemos a dar pesos diferentes a cada servidor no load balancer
 Conhecemos os algoritmos de load balancing como round-robin
 Vimos como configurar servidores de backup
+
+#### 25/08/2023
+
+@01-FastCGI
+
+@@01
+CGI vs FastCGI
+
+[00:00] Boas-vindas de volta a mais um capítulo deste treinamento onde nós estamos conhecendo um pouco desse mundo de servidores web usando nginx. Nesse capítulo o conteúdo vai ser um pouco diferente do que estudamos até agora, porque vamos primeiro estudar algumas bases bastante interessantes, por exemplo, como a web costumava ser e como isso evoluiu de formas diferentes.
+[00:22] Tudo vai girar em torno dessa imagem, não se canse do que vou falar, porque é um conteúdo bem interessante, e logo colocamos a mão na massa. Quando a internet surgiu a principal forma de se executar lógica do lado dos servidores, através do que conhecemos como CGI. Lá no início da internet, a internet nasceu, só tínhamos conteúdos estáticos.
+
+[00:45] Tínhamos HTML, que era um portal de informação, você colocava uma receita de bolo, estava lá, na internet. A internet servia para fornecedor documentos através da rede. Como o tempo foi passando as pessoas foram evoluindo seu uso, ao ponto de do lado do servidor podermos usar alguma lógica.
+
+[01:06] Por exemplo, eu poderia contar o número de pessoas que acessaram meu documento. Para isso preciso no meu servidor armazenar alguma informação. Assim a web foi evoluindo para ter lógica sendo executada do lado do servidor, e nos primórdios isso era feito através de CGI, que é common gateway interface, uma interface padrão de um portão de entrada para a web, vamos dizer assim.
+
+[01:30] Como isso funcionava? Tenho meu usuário nos primórdios, ele acessava a internet, e com isso nós chegamos até um servidor web, por exemplo, hoje em dia o nginx, na época acredito que ele nem existia. Mas beleza, chegou no nginx, mas ele precisa de uma lógica, algo precisa ser executado. Mas o nginx é somente um servidor web, ele não executa lógica de programação.
+
+[01:56] Então escrevemos nossa lógica, por exemplo, na época era muito comum fazer isso em C, escrevemos nossa lógica em C e existe uma interface entre um servidor web que entende PHP, e esse programa em C, que entende entrada e saída, seja lá de onde venha, do terminal, de arquivos, etc.
+
+[02:15] Esse CGI, esse protocolo, essa forma de se comunicar permitia que um servidor web, vamos dizer o Apache, por exemplo, chamasse um executável em C, esse executável em C rodava alguma lógica, devolvia uma resposta formatada em html, por exemplo, e o servidor web pegava essa resposta e devolvia para o cliente. Assim funcionava o backend antigamente.
+
+[02:41] Mas isso tem alguns problemas. Por exemplo, sempre que recebo uma requisição tenho que criar um novo processo, esse processo executa inteiro, depois morre e eu devolvo. Essa parte de criar um novo processo a cada nova requisição era muito custosa. Era algo que tornava a performance muito ruim, a performance era péssima com esse cenário.
+
+[03:06] Conforme as necessidades da web foram evoluindo surgiu outro protocolo em cima desse conhecido como fast CGI. Que é basicamente a mesma ideia, mas com o fast CGI você não precisa criar um processo a cada requisição. Chegou uma requisição, imagina nesse mesmo cenário da lógica escrita em C, chegou uma requisição, algum gerenciador de fast CGI vai pegar esse processo, criar e mandar uma mensagem dizendo execute isso aqui.
+
+[03:40] Ele pega de volta e devolve a resposta para o servidor web. Chegou uma nova requisição, esse processo já está vivo, ele só manda outra mensagem, pega de volta e depois manda a resposta. Super simplificando, esse é o conceito por trás do fast CGI.
+
+[03:55] Onde isso é utilizado? Por exemplo, quando falamos de PHP, esse é o formato mais utilizado por aplicações PHP, através de algo que é conhecido como PHP fpn, que é fast CGI e process manager, então gerenciador de fast CGI.
+
+[04:12] Python consegue fazer dessa forma, Java consegue fazer dessa forma, embora não seja comum, linguagens interpretadas via de regra têm uma implementação bastante comum desse protocolo. Mas conforme a web foi evoluindo existem outras formas de responder requisição.
+
+[04:30] Por exemplo, com PHP você tem um servidor escrito no próprio PHP, você pode utilizar ferramentas que mantém o PHP rodando e recebendo requisições. Em Java, por exemplo, esse é o padrão, você tem algum server de container, algum servidor que fica rodando em Java e devolvendo as requisições.
+
+[04:54] Então essa outra abordagem é muito utilizada hoje quando temos muitas operações intensas de IO, de entrada e saída, quando temos muitas conexões com o banco muito pesadas, muitos arquivos muito pesados, muitas requisições para outros locais. Nesse cenário essa ideia de ter um servidor escrito na própria linguagem autocontido, e o nosso nginx só manda essa requisição http para esse servidor autocontido, isso é algo muito comum hoje, mas para a maioria dos cenários mais comuns, vamos dizer assim, um cenário de uma aplicação de blog. Essa aplicação tem duas, três queries SQL em uma requisição, ela pega algo e devolve logo.
+
+[05:35] Para esses cenários fast CGI é uma ótima alternativa. Por isso inclusive é a padrão utilizada por PHP. Porque qual a vantagem dessa abordagem? Esse nosso gerenciador do fast CGI vai enviar mensagem, por exemplo, para o PHP, o PHP devolve a resposta. Aquele processo é limpo, ou seja, as conexões com banco de dados são automaticamente fechadas, os recursos são liberados, qualquer arquivo que tiver sido aberto é fechado, dessa forma não temos desperdício de recurso e nós desenvolvedores não precisamos gerenciar recursos.
+
+[06:11] Nós não precisamos de um pool de conexões com o banco de dados para garantir que não estoura o limite e reutiliza a mesma conexão. Nada disso é preciso, porque o fast CGI está no meio cuidando disso tudo, limpando os processos de tempos em tempos, etc.
+
+[06:25] Agora, naquele cenário onde temos um milhão de requisições por seguinte, queries muito demoradas, várias requisições para outros serviços, ou seja, em cenários mais complexos adotados essa outra abordagem. De novo, cada abordagem tem soluções para esses dois cenários. Como fast CGI é um protocolo, uma forma de se comunicar, ele não é específico de linguagem.
+
+[06:48] A maioria, ou todas as linguagens têm alguma implementação de fast CGI, e já esse cenário de um servidor autocontido, qualquer linguagem que permita abertura de um socket consegue fazer isso, basta que alguém desenvolva esse servidor. E todas as linguagens famosas de hoje em dia possuem servidores assim.
+
+[07:06] Vamos falar desse cenário mais comum, vamos dizer assim, de fast CGI, porque no caso de um servidor autocontido http já fizemos um proxy reverso, temos tudo que precisamos saber para realizar as requisições para o nosso servidor de aplicação. Agora, em um cenário em que temos o fast CGI, como podemos utilizar o nginx?
+
+[07:28] Eu sei que falei muito e essa parte teórica pode ser um pouco chata, mas é muito importante. Agora vamos configurar um serviço usando o fast CGI e vamos fazer o nginx mandar requisições através de sockets usando o protocolo fast CGI.
+
+@@02
+Diferença
+
+Vimos neste vídeo como a Web funcionava na época do CGI e como funciona agora com servidores auto-contidos ou através do FastCGI. Um servidor auto-contido é basicamente um servidor web escrito na própria linguagem de programação.
+Qual a principal diferença entre CGI e FastCGI?
+
+Alternativa correta
+No CGI o processo permanece vivo após o encerramento de uma requisição.
+ 
+Alternativa correta
+No FastCGI o processo permanece vivo após o encerramento de uma requisição.
+ 
+Alternativa correta! Ao iniciar um processo FastCGI, ele ouvirá novas conexões e não mais morrerá, ou seja, o mesmo processo continua gerenciando os recursos da aplicação. Usando CGI, a cada requisição um processo é criado e depois morre.
+Alternativa correta
+Não há nenhuma diferença crucial. São 2 nomes para o mesmo protocolo.
+
+@@03
+Configurando o proxy
+
+[00:00] Boas-vindas de volta. Agora que já entendemos o conceito por trás de CGI e fast CGI, quero me conectar através do nginx com algum serviço de fast CGI. Então o que vou fazer? Vou subir um container do Docker que tenha um serviço de fast CGI rodando. Vou usar o PHP fpm, porque ele é muito tranquilo, já vem meio que por padrão configurado, não preciso fazer nada, isso vai facilitar um pouco a vida de quem não conhece nenhum serviço de fast CGI.
+[00:35] Se você programa em alguma linguagem que você está habituado a configurar algum servidor, algum serviço de fast CGI pode utilizar ele que tudo aqui deve funcionar exatamente igual. Eu vou utilizar esse serviço, essa imagem do Docker para facilitar a vida da maioria.
+
+[00:50] Como vamos fazer? Em outra aba do meu terminal rodei dois comandos, criei através do echo, que simplesmente exibe uma coisa no terminal, exibi esse conteúdo, que é simplesmente abrir uma tag do PHP e chamar uma função que exibe informações do PHP, e estou redirecionando, ou seja, estou mandando essa mensagem que exibi para o arquivo “index.php”.
+
+[01:15] No final das contas escrevi isso em um arquivo "index.php", em qualquer pasta, e fiz esse comando, estou rodando um container do Docker e logo depois que terminar vou remover ele. Só estou descartando esse container.
+
+[01:33] Estou anexando esse terminal para que tudo funcione como esperamos no terminal e estou liberando a porta 9000 porque é a porta padrão do PHP fpm. E estou dizendo, criando um volume dizendo que tudo que está nessa pasta, e se você estiver no Windows essa parte não vai funcionar, então você coloca o caminho completo da pasta atual, essa pasta vai ser mapeada para a pasta no meu container, minha imagem do Docker.
+
+[02:02] Esse container que estou criando agora vai ser da imagem PHP fpm. O comando padrão dessa imagem já é subir o PHP fpm, já deixa essa aplicação rodando. Ele vai exibir essas duas mensagens, as duas outras foi porque eu fiz alguns testes para garantir que estava funcionando, mas beleza.
+
+[02:22] Tenho aqui uma aplicação que recebe requisições do tipo fast CGI, ela não recebe uma requisição http, ela recebe uma requisição fast CGI. Então consigo acessar esse container, como liberei a porta, através de localhost:9000, sem problema.
+
+[02:41] O que quero fazer agora? Quero configurar um novo serviço, por exemplo, deixa eu reiniciar para garantir que está tudo certo, quero criar um serviço para acessar em localhost:8004, vamos criar um novo serviço. Em /usr/local/etc/nginx/servers/fpm.conf, aqui vou criar um novo servidor, como já estamos habituados, então é bom para praticar.
+
+[03:15] Ele vai ouvir a porta 8004. Nem vou colocar um server name aqui, mas um detalhe importante. Se quero executar arquivos PHP que estão aqui nessa pasta caminho/projeto, vou precisar informar isso a partir do nginx, não vou informar nada por enquanto, vocês vão ver o problema que vai acontecer.
+
+[03:40] Vou colocar nosso location, ou seja, qualquer requisição que chegar aqui vai entrar nesse location, e ao invés de fazer um proxy pass, o que quero fazer um fast CGI pass, e vou passar essa requisição usando um fast CGI, usando esse protocolo fast CGI para o localhost:9000.
+
+[04:05] Teoricamente isso é tudo que preciso, ainda não, mas quase tudo que preciso para as minhas requisições serem passadas do nginx lá para o meu PHP fpm naquele container. Vamos salvar isso, e vou reiniciar o nginx.
+
+[04:22] Vamos ver se já tenho uma resposta diferente. Perfeito, tenho uma resposta diferente, inclusive quando vejo recebi uma requisição, mas repara que nas requisições que eu tinha feito de teste anteriormente tenho algumas informações, como qual foi o verbo http utilizado, qual foi o caminho que chegou essa requisição.
+
+[04:44] Já aqui não tenho informação nenhuma dessa requisição, então o que o PHP fpm fez? Ele recebeu uma requisição, não tem informação nenhuma, então ele só devolveu. Por que não tem informação nenhuma? E se eu tentasse acessar o "index.php"? Repare que ainda assim não tem nenhuma informação chegando, porque o que está acontecendo?
+
+[05:10] Quando fazemos o proxy pass, a requisição HTTP que chegou para nós é reenviada para lá. Podemos fazer modificações como já vimos no treinamento anterior, mas via de regra, o que chegou é enviado. Mas, nesse caso, nós não estamos fazendo uma requisição http de novo, nós recebemos a requisição http no nginx e faz um fast CGI pass, é outro protocolo que está acontecendo aqui.
+
+[05:35] Essa comunicação está sendo feita utilizando não http, mas sim um fast CGI, é outra forma de comunicação, uma comunicação completamente diferente. Então preciso informar, por exemplo, qual verbo http, o caminho que foi requisitado, onde estão os arquivos que ele vai encontrar. Preciso enviar parâmetros para o meu fast CGI.
+
+[06:02] E começamos a pensar, poxa, então vou ter que configurar muita coisa, verbo http, o arquivo que foi requisitado, onde esse arquivo está, todos os cabeçalhos HTTP. Não vale a pena, né? Mas calma que o nginx traz uma grande facilidade para nós. Mas antes de aprender essa facilidade temos que aprender a fazer na unha, né? Mas para aprender a fazer na unha ia levar um bom tempo. Então o que vou fazer? No próximo vídeo vou configurar na prática e vamos entender como essa configuração é feita por baixo dos panos.
+
+@@04
+Para saber mais: Unix socket
+
+Neste vídeo nós simulamos o servidor web e de aplicação em máquinas diferentes, mas no cenário onde ambos estão na mesma máquina, a comunicação pode ser feita através de Unix Sockets, ou seja, sem transmissão de dados pela rede.
+Isso pode trazer um pequeno ganho de performance, então vale a pena o estudo.
+
+@@05
+Parâmetros adicionais
+
+[00:00] Boas-vindas de volta. Já temos uma requisição HTTP chegando e outs usando o protocolo fast CGI indo para o nosso PHP fpm. Mas ela está incompleta, então o que vou fazer? Repare que vai ser bastante simples começar a correção. Vou adicionar um include fastcgi.conf, vou salvar e recarregar o nginx.
+[00:25] Teoricamente algumas coisas já vão mudar aqui. Repare que quando atualizo tenho um file not found, já começou, um erro diferente já é um avanço. Mas vamos ver. Repare que a requisição já chegou corretamente. Já sabemos que é uma requisição usando verbo get para o arquivo "index.php".
+
+[00:44] Perfeito, a primeira etapa está ótima, mas agora o nosso PHP fpm não sabe onde buscar esse arquivo "index.php", por quê? Vamos lá. Tenho essa configuração e incluí, fiz o include do arquivo “fastcgi.conf”. Vamos ver o que tem nele.
+
+[01:10] Nesse arquivo temos várias diretivas de fast CGI param, basicamente o que isso faz é adicionar um parâmetro a essa nossa chamada fast CGI. Então aqui é o parâmetro que estou adicionando e o valor dele. Repare que ele está mandando qual o arquivo, isso chegou certo, a query string se tivesse, no nosso caso não tem, qual o método que foi utilizado nesse request, content type, ele manda tudo que nós precisamos.
+
+[01:38] Só que tem um detalhe que ele está mandando document root, e nós não informamos qual é esse document root, então o PHP fpm não está sabendo onde encontrar.
+
+[01:50] Eu vou adicionar nesse nosso root que é naquele caminho que eu configurei, que eu tenho nosso arquivo na máquina do PHP fpm, que é o /caminho/projeto, então na máquina que tem o PHP fpm, a pasta raiz do nosso projeto é /caminho/projeto, então vou informar isso aqui.
+
+[02:15] Com isso, quando faço o reload teoricamente tenho o nosso arquivo de PHP sendo executado. Toda a nossa lógica pode ser executada lá pelo servidor do PHP fpm, ele devolve isso para o nosso nginx e o nginx manda para o cliente.
+
+[02:30] O que aconteceu aqui? Vamos lá. Quando mando uma requisição para esse serviço, para o serviço de 8004, em qualquer url, o que ele está fazendo? Está caindo no location que inclui o arquivo de configurações que o próprio nginx traz para nós, que tem todos os parâmetros necessários para o fast CGI, então agora com todos os parâmetros inclusos, estou fazendo como se fosse um proxy reverso, mas não estou mandando outra requisição http, estou mandando uma requisição utilizando um fast CGI.
+
+[03:05] Existe uma comunicação por rede, mas não usando http. É um protocolo mais enxuto que passa informações em um formato um pouco mais comprimidas, e dessa forma nosso PHP fpm não precisa receber toda a requisição http no formato http, além disso, por ser um fast CGI, ou seja, por utilizar aquele protocolo, e aquela especificação, esse processo que ele fica rodando não morre e quando ele recebe uma requisição do tipo fast CGI ele manda uma mensagem, executa o PHP e devolve a resposta.
+
+[03:46] Ele limpa aquele processo do PHP que não é o processo completo que precisa ficar ouvindo a requisição, é algo mais limpo, vamos dizer assim, que tem uma performance melhor do que um tipo CGI, mas ainda conseguimos ter essa limpeza.
+
+[04:02] Recebi uma requisição http, mandei essa comunicação por rede usando o protocolo fast CGI e nosso gerenciador de fast CGI, esse gerenciador de processos recebe e faz o que tem que fazer. De novo, estou usando PHP fpm por ter um container do docker bem simples já configurado. Você pode utilizar algum gerenciador de processos do Python, do Hub, do Java, de C#, de qualquer linguagem, na verdade, de C, C++, linguagens compiladas.
+
+[04:35] Se existe algum gerenciador de processos fast CGI para sua linguagem que execute na sua linguagem você vai conseguir fazer exatamente a mesma configuração. Então beleza, dessa forma temos outra possibilidade aqui. Posso ter, por exemplo, um proxy reverso para pegar nossos arquivos estáticos usando load balancer e tudo mais, e posso ter o fast CGI pass rodando para os dados, mandando essa requisição para um servidor de aplicação que usa fast CGI.
+
+[05:05] Repare que as possibilidades começam a aumentar. Posso ter um load balancer na frente e esse load balancer manda para um proxy reverso, esse proxy reverso pode mandar requisições http para outros serviços ou já devolver os arquivos estáticos, e pode mandar esse fast CGI para um servidor de aplicação em outro local. E nós podemos ir aumentando nossa arquitetura do sistema, nosso design system aqui com vários serviços diferentes.
+
+[05:35] E obviamente, de novo, falei bastante isso no treinamento anterior, mas é bom recapitular aqui, cada um desses serviços que crio poderiam facilmente estar em servidores diferentes, em máquinas diferentes, por isso o nome da diretiva é server, normalmente está em um servidor diferente, então um servidor seria o load balancer, o outro teria um proxy reverso, o outro faria esse fast CGI pass e assim por diante.
+
+[06:02] Falei bastante sobre fast CGI, vamos de novo voltar um pouco para o mundo só de servidores web, sem servidores de aplicação e aprender coisas novas, como, por exemplo, manipular outras coisas bastante interessantes do próprio HTPP.
+
+@@06
+Faça como eu fiz
+
+Chegou a hora de você seguir todos os passos realizados por mim durante esta aula. Caso já tenha feito, excelente. Se ainda não, é importante que você execute o que foi visto nos vídeos para poder continuar com a próxima aula.
+
+Continue com os seus estudos, e se houver dúvidas, não hesite em recorrer ao nosso fórum!
+
+@@07
+O que aprendemos?
+
+Nesta aula, aprendemos:
+Entendemos como funcionava a Web nos primórdios
+Aprendemos sobre o conceito de CGI e as vantagens do FastCGI
+Vimos como enviar as requisições para um servidor FastCGI
+Aprendemos a manipular os parâmetros FastCGI
