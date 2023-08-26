@@ -376,3 +376,190 @@ Entendemos como funcionava a Web nos primórdios
 Aprendemos sobre o conceito de CGI e as vantagens do FastCGI
 Vimos como enviar as requisições para um servidor FastCGI
 Aprendemos a manipular os parâmetros FastCGI
+
+#### 26/08/2023
+
+@03-Performance
+
+@@01
+Cache HTTP
+
+[00:00] Boas-vindas de volta a mais um capítulo deste treinamento, onde estamos aprofundando nossos conhecimentos com esse servidor web nginx. Já mergulhamos um pouco mais na parte de load balancers, já vimos sobre fast CGI. Vamos voltar para o mundo http e aprender sobre um assunto que é muito importante não só para nós que estamos configurando um servidor web, mas também para quem é desenvolvedor web, para quem é desenvolvedor backend, frontend.
+[00:28] Esse assunto é performance. Vamos falar sobre performance, vamos falar sobre como o nginx pode nos ajudar nessa parte de performance. Acho válido citar que tem dois cursos fenomenais sobre performance web aqui na plataforma, inclusive tem um guia de estudos do Sérgio Lopes que é fera nessa área, que tem além desses dois cursos dele também alguns outros recursos. Vale muito conferir.
+
+[00:52] Mas como estamos estudando nginx, acho que não dá para deixar isso passar em branco, então vamos dar uma estudada sobre isso. Para começar, o que tenho aqui? Criei uma nova pasta performance e nessa pasta tenho uma imagem de um meme bobinho e um arquivo, um HTML.
+
+[01:11] Você pode pausar o vídeo e escrever esse HTML, ou você pode copiar ele da transcrição, a imagem você pode usar literalmente qualquer imagem, não tem nada de mais no que vamos fazer específico desses arquivos. Mas vamos lá, vamos configurar um servidor para servir esse HTML que exibe essa imagem.
+
+[01:30] Vou criar um usr/local/etc/nginx/servers/performance.conf, aqui vou criar um novo servidor e vou vir 8005, acho que essa porta está disponível, nosso root, ou seja, o caminho onde o nginx vai buscar nossas pastas, nossos arquivos, é esse, e nosso index é o arquivo “index.html”.
+
+[02:02] Repare que não coloquei nenhum location, porque essas configurações são para o servidor todo, e não para uma parte específica dele, então não tem problema nenhum deixar fora do location. Vamos fazer um reload para recarregar o servidor, para o servidor recarregar as configurações, e vamos acessar esse 8005.
+
+[02:22] Temos nosso feliz aniversário “bobinho”, e agora vamos para o ponto de performance, onde quero chegar. Quando faço uma requisição, então quando digito esse endereço e dou enter, ou quando atualizo, quando aperto f5, o que acontece? Uma requisição é feita para esse endereço, isso cai no nosso arquivo, ele vê que tem que pegar esse index.html.
+
+[02:44] Esse index.html é devolvido para o navegador, o navegador recebe isso e faz um parse disso, faz a interpretação desse arquivo e vê que precisa buscar essa imagem, então ele volta no servidor, pega essa imagem e depois exibe lá. Então temos duas requisições nesse caso, mas o que acontece?
+
+[03:10] Essa imagem de uma requisição para outra, as chances dela ter mudado são pequenas, é baixa a chance dessa imagem ter sido alterada. A página, em si, é mais comum que alteremos, façamos correções, mude o estilo, etc., mas a imagem vai ser sempre a mesma.
+
+[03:25] Então, o que quero fazer? Quero dizer, olha só, navegador, quando você baixar essa imagem pode manter ela salva aí, não precisa me pedir não, pode usar a que você tem salva. Esse é o conceito de cache, e muitos navegadores já fazem cache por padrão, mesmo que o servidor não instrua ele a fazer isso.
+
+[03:44] Por exemplo, estou usando um navegador que é bastante parecido com o Chrome, então podemos chamar ele de Chrome aqui, e via de regra o Chrome faz algum cache, mesmo que o servidor não instrua, principalmente quando estamos em localhost. Ele assume algumas coisas a mais, ele faz algumas assunções, ele parte do princípio que ele pode fazer algumas verificações a mais, etc.
+
+[04:14] Então, o que quero analisar? Vou clicar com o botão direito em qualquer lugar da página e vir em inspecionar. Aqui temos algumas abas, dependendo do navegador pode mudar um pouco, mas é bem semelhante, venho em network.
+
+[04:26] Repare que tenho um disable cache, se marco isso e faço uma requisição ou se venho aqui e atualizo, ele nunca vai cachear. Repare que ele sempre traz o conteúdo completo, nunca faz cache, mas se eu não marco a opção de desabilitar cache e atualizo, repara que o Google Chrome já faz um cache, mantém essa imagem e não vai ao servidor buscar.
+
+[04:52] Então quando pego o tamanho dessa imagem, quando tento ver o tamanho dessa imagem ele mostra que nada precisou ser transferido pela rede, esse arquivo já estava em memória e ele conseguiu servir.
+
+[05:05] Então o que quero fazer é a partir do meu servidor instruir para o Google Chrome ou para qualquer outro navegador, qualquer cliente. Olha só, quero que você realize o cache, porque aqui o navegador está fazendo por conta própria e ele pode fazer o cache ou não, não sei quanto tempo ele está armazenando isso em cache, pode ser dez minutos, dez segundos, um dia, para sempre, não sei.
+
+[05:26] Então o que quero fazer? A partir do nginx, ou seja, a partir do meu servidor web, quero informar quem fez a requisição para essa imagem, você pode armazenar isso, essa imagem expira daqui trinta dias, então você pode mandar ela em trinta dias, se você precisar dela não precisa mandar requisição, ela está válida.
+
+[05:46] Trinta dias depois eu recomendo que você faça a requisição de novo. Então como podemos fazer isso? Como podemos informar algo para o navegador? Podemos utilizar cabeçalhos http. Podemos enviar cabeçalhos http para passar essa informação para o nosso navegador. Repare que tenho tanto os cabeçalhos da requisição quanto da resposta.
+
+[06:11] Então quero que na resposta, ou seja, o que vem do servidor, adicione alguma informação de cache. Quero informar que essa imagem expira em trinta dias. Vamos lá para a nossa configuração. Estou na configuração, sempre que eu acessar um location que termine com .jpg, falamos um pouco de expressão regular no treinamento anterior, mas deixa eu refrescar a memória.
+
+[06:40] Quando tenho esse til o que vem depois é uma expressão regular, uma Regex. Esse contra barra significa que o ponto que vem depois é realmente um ponto e não qualquer caractere, porque um ponto numa expressão regular pode ser qualquer caractere, e depois jpg e o cifrão indica que é o final, ou seja, esse location vai casar, vai bater, servir para qualquer arquivo que termine com .jpg, para qualquer localização, URL que termine com .jpg.
+
+[07:11] Então o que quero fazer aqui é informar que qualquer informação, qualquer recurso, no caso aqui imagem, que for acessado usando esse location vai expirar em trinta dias. Dessa forma sempre que alguma regra cair, alguma requisição cair nessa regra de location, nós vamos adicionar essa informação na resposta, informando que isso expira em trinta dias.
+
+[07:40] Então vamos salvar, recarregar, e agora vamos fazer uma nova requisição aqui e quando clico vamos conferir se temos os detalhes. Lembra que o Chrome já fez um cache mesmo sem pedirmos, então ele não mandou requisição. Vou desabilitar o cache para que o Chrome faça a requisição, e quando eu atualizo agora o que vamos ter aqui?
+
+[08:05] Repare que tenho uma informação de cache control, vou desabilitar essa opção. O que o cache control quer dizer? Basicamente está dizendo que esse recurso tem a idade máxima, ou seja, pode durar esse número de segundos ou minutos, eu acho que é segundos. Essa quantidade de tempo, e isso quer dizer trinta dias.
+
+[08:25] O nginx já fez essa conta e mandou esse cabeçalho para nós, tudo que precisamos era informar que isso expira em trinta dias. Mas ele também manda outro cabeçalho, o expires, então como estou gravando isso no dia 17 de abril, ele mandou que isso vai expirar no dia 17 de maio.
+
+[08:45] Ele já passou essas duas informações, porque de novo, super resumindo esse conteúdo, os navegadores antigamente, alguns navegadores interpretavam melhor esse cabeçalho, outros davam mais importância para esse cabeçalho, então a recomendação sempre foi enviar os dois.
+
+[09:05] Hoje em dia os navegadores modernos sabem lidar com os dois, então qualquer um dos dois cabeçalhos vai servir, mas ainda é recomendado enviar os dois porque alguns outros clientes que não são navegadores podem por algum motivo depender de algum desses cabeçalhos, então o ideal é mandar os dois para garantir.
+
+[09:20] Dessa forma agora quando vamos tentar acessar essa página de novo o conteúdo não precisa ser transferido pela rede, ou seja, ele vai ser buscado, vai ser servido através do próprio cache, ou seja, isso já está salvo no navegador.
+
+[09:35] Agora um último detalhe sobre cache é que o cache control tem algumas coisas bastante interessantes, além de max age, temos alguns outros valores possíveis. Por exemplo, um caso onde podemos adicionar outro valor. O cache pode ser armazenado não só pelo navegado. No nosso caso o navegador está armazenando, mas entre um servidor que possui o arquivo e o navegador do cliente final podem existir diversas etapas.
+
+[10:02] Por exemplo, um proxy reverso, um cdn, que é content delivery network, pode ter um proxy na própria rede. Se eu quiser informar posso informar que qualquer uma dessas etapas entre servidor e cliente pode realizar o cache também. Então posso fazer isso através de um cabeçalho cache control com valor public, e caso você não saiba um cabeçalho http pode ter vários valores, posso enviar ele várias vezes.
+
+[10:33] Vou adicionar um cache control public, vamos lá no nosso performance e no nosso location vou adicionar um cabeçalho, então add_header Cache-Control public, vou salvar, fazer o reload e quando venho aqui vou desabilitar o cache para ele ir ao servidor receber essa informação, e atualizo.
+
+[10:55] Posso desmarcar isso e quando dou uma olhada tenho cache control public além do cache control com max age. Ou seja, se eu tiver algum cdn, algum servidor de cache específico, um proxy reverso, um proxy na própria rede, tudo isso vai ver isso e caso esse intermediário saiba realizar cache ele vai ter essa informação e vai ver que pode fazer cache, e vai usar essa informação.
+
+[11:22] Então aqui temos um resumão sobre cache HTTP, de novo, tem um curso específico sobre performance onde muito mais detalhes sobre caches são explicados, mas eu acho que isso é um bom início. Só que isso não é tudo que temos a falar sobre performance, então continuamos no próximo vídeo.
+
+@@02
+Papel de cada um
+
+Vimos neste vídeo como enviar um cabeçalho HTTP além de informar a expiração do cache de alguns recursos.
+Sobre cache, marque a alternativa correta:
+
+Cache HTTP é um recurso exclusivo do Nginx.
+ 
+Alternativa errada! Nginx apenas facilita o envio dos cabeçalhos HTTP, mas esse conceito é da Web em geral.
+Alternativa correta
+O navegador pode ignorar os cabeçalhos de cache e não cachear o recurso.
+ 
+Alternativa correta! Tanto isso é verdade que temos a opção de desabilitar o cache do nosso navegador. Os cabeçalhos de cache instruem o navegador sobre quanto tempo ele pode/deve manter o recurso em cache, mas cabe a ele aceitar essa instrução ou não. Todos os navegadores modernos tendem a seguir a instrução a menos que configuremos de forma diferente.
+Alternativa correta
+O cache de um recurso sempre é buscado do disco.
+
+@@03
+Compressão
+
+[00:00] Boas-vindas de volta. Estamos brincando um pouco, falando sobre performance e como o nginx nos ajuda com isso. Falamos sobre cache, mas nem só de cache vive a performance de uma aplicação web, então vamos entender o que mais o nginx faz para nós de forma super simplificada que pode ajudar bastante na performance.
+[00:20] Você já deve ter notado que a fonte mudou e o que eu fiz? Acessei getbootstrap.com, vim em download e baixei esse arquivo zip, desse zip peguei o arquivo bootstrap.min.css, e esse arquivo fiz o link no nosso html para que o html utilize esse CSS.
+
+[00:42] A partir de agora temos mais um arquivo sendo incluído aqui, ou seja, quando atualizo tenho um número maior de conteúdo sendo transferido, tenho aproximadamente 170kbps sendo transferidos aqui. Isso é bastante pouco porque é um exemplo bem pequeno. Em um cenário real você pode ter megas sendo transferidos.
+
+[01:02] Isso é baixado da internet, pode ser baixado pela internet de um celular, por exemplo, um 3g, em alguns lugares do Brasil um 2g infelizmente. Então essa conexão, essa transferência pode ser lenta. Quanto menor a transferência melhor. Óbvio que existem otimizações que podemos fazer na imagem, por exemplo, mas isso foge do escopo deste treinamento. Lá no treinamento de performance isso é citado.
+
+[01:30] O que podemos fazer com o nginx para que esse número diminua, de 170kbps para alguma coisa menor do que isso? Qualquer melhor já pode ajudar. Imagine que você quer me enviar um arquivo por e-mail, mas esse arquivo é muito grande, o que você faz para melhorar um pouco a experiência dessa transferência? Você comprime esse arquivo usando gzip, zip ou rar, tar, alguma coisa assim, algum algoritmo de compressão.
+
+[02:00] Na web é muito comum enviarmos arquivos comprimidos. Então o que podemos fazer? Podemos vir no nginx e informar que nesse servidor quero ativar o gzip, quero ativar a compressão no meu servidor. O nginx já tem por padrão um módulo de compressão instalado, então quando faço isso habilito esse módulo no meu servidor.
+
+[02:33] Deixa eu atualizar e recarregar, e vamos ver o que acontece quando atualizo agora. Repare que estou desabilitando o cache para vermos o tamanho de toda a transferência mesmo. Quando faço isso tenho os mesmos 170kbps.
+
+[02:48] Por padrão o nginx vai comprimir somente o HTML que estamos enviando. Se eu quiser comprimir algum outro tipo de arquivo preciso informar para ele, porque o nginx não sabe o que faz sentido comprimir, o que não faz no nosso cenário. Talvez nós já estejamos fazendo compressão de alguma outra coisa de outra forma, então vamos informar para ele.
+
+[03:08] Mas se você reparar em um detalhe, já tenho do content encoding, ou seja, esse detalhe meu HTML já está comprimido, mas ele é tão pequeno que nem faz diferença, só adicionamos um cabeçalho a mais, então talvez tenha ficado até um pouco maior.
+
+[03:25] Agora vamos ver se isso vai fazer diferença no nosso CSS, que tem 155kbps, é quase toda a nossa transferência. Vou informar os gzip types, ou seja, os tipos que quero fazer compressão. E aqui posso ter image.jpg, mas esse tipo de compressão funciona muito bem com arquivos de texto, arquivos de imagem, arquivos binários não costumam ser muito beneficiados, mas vamos dar uma olhada para ver como isso fica.
+
+[03:55] Também posso adicionar o text/css, vamos ver como fica essa compressão. Vou recarregar e vamos atualizar para ver. Tenho 155 e 14.3. Quando atualizo repare que a imagem nem foi muito otimizada, então nem vale a pena. Acabo dando mais trabalho para o servidor para tentar comprimir a imagem e ele nem consegue fazer muita coisa.
+
+[04:20] Agora, aqui temos um ganho absurdo. De 155kbps para 30kbps. Isso é um ganho muito grande, imagine em um site inteiro. Aqui foi um arquivo só, mas imagine no site real, com vários arquivos de CSS, Java script, cvg e qualquer outra coisa que contenha texto.
+
+[04:40] Com essa simples adição de duas linhas, inclusive deixa eu tirar da imagem para não ficarmos gastando processamento do servidor à toa, com essas duas linhas temos um ganho absurdo na nossa performance. Repare que daqueles 170kbps temos agora 45kbps sendo transferidos. Isso é muito útil principalmente na nossa realidade brasileira, onde temos uma banda bastante estreita, uma internet bastante ruim em vários lugares do Brasil.
+
+[05:12] Falamos sobre cache para evitar requisições, falamos sobre compressão para fazer com que essas requisições transfiram menos dados, agora vamos falar de outro detalhe que está já sendo feito aqui, mas que precisamos conhecer quando falamos de performance, eu pelo menos acho muito válido ter esse conhecimento. Vamos falar um pouco mais para finalizar sobre conexões em si.
+
+@@04
+O que comprimir
+
+Vimos neste vídeo como a compressão pode ajudar a diminuir a quantidade de recursos trafegados pela rede, e como é fácil realizar compressões com Nginx.
+Que tipo de recursos são os mais beneficiados pela compressão com gzip na web?
+
+Arquivos de texto (html, css, js, svg, etc).
+ 
+Alternativa correta! Arquivos de texto podem facilmente ser comprimidos e são os que mais levam vantagem desta técnica. Arquivos binários ou arquivos de imagem, por exemplo, naturalmente já são comprimidos, por isso o efeito seria bem menor (ou inexistente).
+Alternativa correta
+Arquivos binários e de imagem.
+ 
+Alternativa correta
+Todos os formatos de arquivo.
+
+@@05
+Conexões
+
+[00:00] Boas-vindas de volta. Vamos falar sobre o próximo de conexão entre um cliente e o nginx e como podemos melhorar um pouco isso. Como falamos lá no início do primeiro treinamento, o nginx funciona com um processo principal e vários worker processes, então, o que acontece?
+[00:22] Por padrão nossa configuração está com um worker processes, e segundo a própria documentação você colocar um worker processes para cada um dos núcleos que o seu computador, que seu servidor tem é uma boa pedida, assim cada um dos núcleos vai poder receber um worker e esse worker vai poder receber várias requisições.
+
+[00:50] Além disso, podemos definir o limite que cada worker vai ter de conexões. E isso vai depender muito do tipo de requisição que seu sistema recebe, do sistema operacional, o limite de found scripters, etc. Então vamos mudar somente o worker processes aqui.
+
+[01:08] Vamos mudar o limite de um para auto, assim o próprio nginx vai ver quantos núcleos nossa CPU tem, no meu caso são oito, então poderia definir como oito, mas vou deixar essa responsabilidade para o nginx. E isso não está no nosso arquivo de um serviço específico, isso está no “nginx.conf”, então em worker processes vou botar auto.
+
+[01:30] Vou fazer um reload e agora quando o servidor sobe, quando foi nesse reload, ele já cria mais processos, um processo worker para cada um dos núcleos. Agora nosso servidor já está pronto para receber muito mais conexões. De novo, através de testes, benchmark, estudos sobre seu tipo de aplicação, podemos aumentar esse worker connections, às vezes diminuir, isso depende de teste, é muito relativo, então não vamos mexer nele aqui.
+
+[02:00] Outro detalhe muito interessante é algo que o nginx faz sobre keep alive connections. Quando faço a requisição, no localhost vemos os headers de resposta e temos um connection keep alive, temos um cabeçalho que não sei muito bem o que significa, mas aqui tem um link para uma explicação do próprio nginx.
+
+[02:26] Quando damos uma olhada nessa explicação nos deparamos com algumas imagens, quando não temos o keep alive ativado, o que acontece? O nosso cliente, o navegador fez uma requisição? O que acontece? Uma conexão é aberta com nosso servidor, essa primeira parte, nós abrirmos essa conexão, enviamos essa requisição HTTP, esse pedido.
+
+[02:52] O servidor vai fazer o que tem que fazer, devolve, e o cliente lê essa resposta http, faz o parse dela e fecha essa conexão. Então esse processo precisa ser realizado para cada requisição que nós fazemos, mas às vezes como temos mais de uma requisição praticamente ao mesmo tempo, muito próximas, e para o mesmo servidor, para fazer uma página só, então será que preciso mesmo criar três conexões diferentes?
+
+[03:22] Talvez faça sentido criar três conexões diferentes, mas nem sempre isso é útil, então podemos utilizar o conceito de keep alive, onde o navegador vai manter essa conexão aberta por algum tempo. Então o que ele faz? A conexão é aberta, ele manda o pedido, quando ele recebe o pedido ele espera por algum tempo, você pode definir esse tempo, quanto tempo você prefere que ele espere.
+
+[03:46] Se passar desse tempo e nenhuma outra requisição precisa ser feita, ele vai fechar. Caso contrário ele vai utilizar essa mesma conexão para fazer a requisição, ou seja, não precisamos dessa primeira etapa aqui e ganhamos uma performance bem interessante.
+
+[04:04] Para configurar esse keep alive, como você já viu, utilizamos cabeçalhos. Temos um cabeçalho content connection igual o keep alive, e nós temos o cabeçalho keep alive, onde podemos definir o timeout, podemos definir outras opções.
+
+[04:20] Se dermos uma olhada em http keep alive caímos na documentação e temos alguns parâmetros de timeout e max, o número máximo de pedidos que podemos ter sendo respondidos por uma única requisição, e o timeout, ou seja, o tempo que podemos manter essa requisição aberta sem pedidos antes de fechar, e assim podemos enviar esses dados.
+
+[04:45] Então, se quero adicionar um cabeçalho http você já sabe como podemos fazer. Vou copiar esse valor para usar igual e vamos à configuração desse nosso arquivo de performance adicionar um cabeçalho, add_header Keep-Alive *timeout=5, max=100. Vamos recarregar e ver se não digitei nada errado.
+
+[05:11] Quando realizo essas requisições de novo, ignorando o cache, vamos ver se recebemos essa nova resposta do keep alive, e está lá nosso keep alive configurado, dessa forma se dentro de cinco segundos eu tentar realizar alguma requisição dentro dessa página, a mesma conexão vai ser aproveitada.
+
+[05:30] Recapitulando, configuramos quantas requisições, como as requisições vão ser lidadas pelo nosso servidor, aumentando o número de processos. Poderíamos mudar o número de conexões que cada processo recebe e estamos instruindo o navegador a manter as conexões abertas utilizando keep alive.
+
+[05:48] Falamos de performance, mas ainda tem muita coisa que podemos ver, que podemos utilizar do nginx além dessa parte específica de http, inclusive essa parte de cache que vimos no primeiro vídeo desse capítulo pode ser feito sem ajuda do navegador. Nós podemos ter cache do lado do servidor. Então, o que acha de conversarmos sobre esse assunto no próximo capítulo?
+
+@@06
+Para saber mais: Keepalive
+
+Vimos neste vídeo como configurar o cabeçalho Keep-Alive, mas se você quiser mais detalhes sobre os possíveis valores, pode conferir esta página: Keep-Alive.
+
+https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Headers/Keep-Alive
+
+@@07
+Faça como eu fiz
+
+Chegou a hora de você seguir todos os passos realizados por mim durante esta aula. Caso já tenha feito, excelente. Se ainda não, é importante que você execute o que foi visto nos vídeos para poder continuar com a próxima aula.
+
+Continue com os seus estudos, e se houver dúvidas, não hesite em recorrer ao nosso fórum!
+
+@@08
+O que aprendemos?
+
+Nesta aula, aprendemos:
+Aprendemos sobre cache HTTP
+Relembramos como enviar cabeçalhos HTTP
+Conhecemos e habilitamos a compressão com gzip
+Aprendemos a configurar o número de processos do Nginx
+Vimos as vantagens de manter uma conexão HTTP aberta
