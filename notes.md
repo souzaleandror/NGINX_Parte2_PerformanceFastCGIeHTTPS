@@ -705,3 +705,127 @@ Entendemos o propósito de um servidor de cache
 Aprendemos a definir um diretório para armazenar nosso cache
 Vimos como usar cache em determinado servidor
 Aprendemos a verificar o status do cache em cada requisição
+
+@05-HTTPS
+
+@@01
+Funcionamento
+
+[00:00] Boas-vindas de volta a mais um capítulo deste treinamento de nginx, e nós já falamos bastante sobre performance, load balancer, fast CGI, está na hora de falarmos pelo menos um pouco sobre segurança. Quando estamos falando de web o mínimo que temos que fazer em que questões de segurança é ter nosso ambiente conectado e pronto para responder requisições em https.
+[00:25] Vamos entender super por alto como funciona esse tal de https, porque lá no treinamento de http já tem um capítulo sobre isso explicando de forma mais didática com mais detalhes. Só vou pincelar aqui caso você não tenha feito aquele treinamento ainda não ficar completamente perdido.
+
+[00:42] Como funciona o http? Vou abrir meu inspecionar elementos. Quando faço alguma requisição temos uma requisição sendo feita e temos uma resposta. Tanto a requisição quanto a resposta trafegam pela rede assim, em texto puro. Imagine que entre o cliente e um servidor já vimos que podem ter várias etapas, inclusive etapas que nem citamos aqui, que têm relação mais com rede do que qualquer outra configuração de web.
+
+[01:11] Por exemplo, um modem, um proxy de rede que já falamos, um proxy reverso, um cdn, só que além dessas coisas que são comuns podemos ter um atacante no meio disso tudo, uma pessoa prestando atenção em tudo que está acontecendo na rede.
+
+[01:26] Eu vou lá, feliz acessar a Alura, quando digito minha senha, coloco meu e-mail, digito minha senha, quando dou enter esse atacante vai conseguir acessar minha senha, vai conseguir ver esses dados que enviei. Isso é péssimo, seria uma péssima prática. Mas quando vemos esse cadeado e um https na frente, sabemos que um processo está acontecendo.
+
+[01:57] Vou super simplificar esse processo baseado numa imagem que peguei da internet para entendermos o que acontece. Só para recapitular como funciona com HTTP sem o https.
+
+[02:10] Todos esses dados que enviei aqui seriam mandados para o servidor direto, em texto puro, então qualquer pessoa no meio, qualquer atacante no meio teria acesso a esses dados. Já quando uso https, o que acontece? Faço a requisição para me conectar a esse servidor e esse servidor devolve um certificado.
+
+[02:35] Quem emite esse certificado é um assunto um pouco complexo, mas existem na internet entidades certificadoras. Existem várias, que eu conheço uma que emite certificados de forma gratuita, e existem várias entidades certificadores que você precisa pagar pelo certificado, tem que renovar de tempo em tempos, etc.
+
+[02:52] Esse certificado garante que esse site é esse site, que ele é confiável, que ele não vai fazer nada de errado com seus dados. A partir disso, com esse certificado que realmente verifica quem é esse servidor, esse site, esse sistema, o navegador recebe esse certificado, a partir desse dado do certificado ele gera uma chave. Essa chave que ele gerou a partir desse certificado ele usa para encriptar a mensagem, para fazer a criptografia da requisição HTTP.
+
+[03:25] E ele vai mandar essa requisição http criptografada. Ou seja, quem está no meio do caminho tentando ouvir, pegar os dados, não vai conseguir recuperar essa informação, porque ela está criptografada. Quando chega no servidor o servidor usa esse mesmo certificado, esses dados de chave que ele tem, que as entidades certificadoras geraram, para descriptografar essa requisição e fazer o processamento normalmente.
+
+[03:54] Essa é a ideia por trás de um https. Mas quando falamos de ambiente de desenvolvimento ou local, ou seja, quando falamos de localhost, não conseguimos falar para a entidade certificadora garantir que localhost é um site confiável, um sistema confiável.
+
+[04:14] Nesses cenários não conseguimos para um ambiente local utilizar dessa forma padrão um https. Mas é muito comum precisarmos ter no nosso ambiente de desenvolvimento https também criptografado para acessar APIs externas, porque algumas APIs verificam que todas as requisições têm que vir de https, para garantir que algumas outras integrações funcionam e também para garantir que nosso servidor web está configurado corretamente dados os certificados.
+
+[04:44] O que vamos fazer nesse capítulo? Ao invés de contatar uma entidade certificadora, etc., nós vamos gerar um certificado. Esse certificado não é válido, o navegador não vai reconhecer ele como válido, mas ele vai funcionar o suficiente para conseguirmos acessar um https. Mas repare que nesse site, o https ele está com um cadeado, a conexão é segura, ele reconhece a entidade certificadora.
+
+[05:14] No nosso caso vamos ter o https, mas não vamos ter o cadeado, porque de novo, não estamos contratando uma entidade certificadora, ou usando alguma gratuita para garantir que esse site realmente é esse site, que não é nada malicioso, etc., mas para ambiente local é o suficiente. Em um ambiente de produção a equipe de segurança vai se reunir e vai decidir qual entidade certificadora utilizar baseado nos critérios, seguranças que cada uma delas fornece, etc., e a partir disso você vai ter os certificados e configurar o nginx.
+
+[05:46] O próximo vídeo é sobre gerar esses certificados, gerar os arquivos necessários para só então configurar o nginx.
+
+@@02
+HTTP sem S
+
+Vimos neste vídeo como funciona o HTTPS na prática e qual o seu propósito.
+O que acontece com nossos dados quando usamos HTTP , ou seja sem a letra S ao final?
+
+Os dados são criptografados, para impedir a visualização por intermediários.
+ 
+Alternativa correta
+Usamos automaticamente um certificado digital para provar a identidade de um site.
+ 
+Alternativa correta
+Os dados são transportados em texto puro para o servidor, visível para qualquer um.
+ 
+Alternativa correta! Exato, nossos dados são enviados em texto puro, ficando visível para qualquer um que consiga interceptar nossa conexão!
+
+@@03
+Gerando certificado
+
+[00:00] Boas-vindas de volta. Vamos gerar nosso próprio certificado, o que é conhecido como certificado auto assinado. Eu estou gerando, eu estou assinando, eu vou marcar como confiável, etc.
+[00:14] Vamos lá, eu vou abrir e preciso do openssl instalado. No meu Mac ele já está instalado por padrão, não precisei fazer nada, mas dependendo do seu sistema operacional você deve precisar instalar alguma coisa ou não. Com o openssl instalado vamos rodar o comando openssl raq, que faz uma requisição de certificado ou quando passamos o parâmetro -k509 ele cria um certificado auto assinado.
+
+[00:40] Estamos dizendo que não precisa criptografar nossa chave, isso vai ficar aqui. Conseguimos colocar uma validade para esse certificado, vou colocar 30 dias para garantir que não aconteça nada de mal, e aqui estamos criando uma nova chave utilizando a criptografia rsa, é uma chave, de 2.048 bits.
+
+[01:02] Nós vamos passar o parâmetro que vai gerar a chave de saída, vou mandar para minha pasta temporária e o nosso certificado de saída. Então temos uma chave e um certificado. Chegando nesse ponto vou executar isso e ele vai me pedir algumas informações para gerar os dados desse certificado.
+
+[01:22] São informações que você enviaria para a entidade certificadora, etc. Vou passar o código do país, um Estado, cidade, você pode colocar dados corretos, eu não vou colocar nada muito válido aqui. Vou colocar o host name como localhost, o e-mail de endereço vai ser example@localhost, e teoricamente os arquivos foram gerados.
+
+[01:51] Quando acesso meu tmp tenho localhost, o certificado e a chave. Temos os dados necessários para continuar. Se eu utilizar esses arquivos na configuração do nginx, isso não vai funcionar ainda, o navegador vai se recusar a usar isso. O que preciso fazer é adicionar na base de dados de certificados no meu computador esses dois certificados falando que sei que não é seguro, mas confia, eu sei o que estou fazendo, pode utilizar.
+
+[02:22] Mal ou bem, mesmo sem exibir o cadeado, deixa eu utilizar isso. Em cada sistema operacional isso vai ser feito de forma diferente. No Mac vou utilizar o comando security, mas tanto no Windows quanto no Linux vocês vão utilizar o certutil, ou seja, utilidade de certificação.
+
+[02:42] Vocês vão utilizar esse comando trocando o foo.crt pelo arquivo crt que geramos. Vou copiar isso, colar, só mudando o caminho para localhost.crt, ele vai dar um aviso, sem problema, e vou copiar esse outro comando, também para tmp/localgost.crt, ele vai pedir minha senha, sem problema, vou digitar, porque estou permitindo que esse certificado seja utilizado como algo confiável.
+
+[03:18] Teoricamente agora tenho minha chave e meu certificado criados, ambos na pasta tmp. Deixei aqui para quando desligar o computador isso ser excluído, mas teoricamente você vai armazenar isso em um local que o nginx tem acesso sempre, etc.
+
+[03:33] Configurado o certificado e a chave precisamos configurar o nginx. Quero fazer com que essa página de parabéns seja disponibilizada através de https. Ou qualquer outro site, pode ser o nosso padrão, 8080, quero que esse seja disponibilizado através de https. Vamos fazer essa configuração no próximo vídeo.
+
+@@04
+Para saber mais: Aceitando o certificado
+
+Para garantir que seu navegador reconheça o certificado "auto-assinado" que acabamos de gerar, você pode seguir os passos desta página: Managing security certificates from the console - on Windows, Mac OS X and Linux.
+
+@@05
+Configurando Nginx
+
+[00:00] Boas-vindas de volta. Um detalhe importante é que após rodar esse comando security ou o certutil, você precisa fechar todas as janelas do seu navegador, inclusive janelas anônimas, para que quando ele abrir de novo ele verifique essa base de dados de certificados atualizada.
+[00:18] Feito isso, o que vamos fazer? Ao acessar https://localhost quero que ele acesse algum dos nossos serviços. Para começar, por que não coloquei uma porta? Porque quero te trazer uma informação relevante. Assim como a porta padrão do http é a porta 80, a porta padrão do https é a 443. Só para termos essa informação vamos configurar essa porta 443.
+
+[00:52] Vou continuar esse de performance, que foi o último que mexi. Vou ter um server e nesse server vou copiar isso tudo, teoricamente não precisaria copiar, podemos conversar sobre isso depois, mas vou copiar aqui, e vamos começar.
+
+[01:10] Primeiro, não vou ouvir essa porta 8005, vou ouvir a porta 443. E vou informar que sempre que essa porta for ouvida preciso utilizar ssl, que é o algoritmo de criptografia, a forma como ele criptografa as conexões https. Mantenho todas essas informações iguais e vou adicionar ssl_certificate, e aquele meu certificado, localhost.crt, e também o ssl_certificate_key, a chave que autentica ele, que é o localhost.key.
+
+[01:47] Teoricamente isso é tudo que preciso. Vamos ver se não digitei nada errado. Vamos tentar acessar o localhost. Quando acesso ele mostra não seguro, mas permite que eu acesse.
+
+[02:00] Da primeira vez que você acessar, deixa eu ver se consigo reproduzir esse comportamento na aba anônima. Não porque ele já salvou. Da primeira vez que você acessar ele vai exibir uma mensagem de que esse site não é seguro, mas ele vai aparecer um botão avançado, e lá você tem a opção de acessar mesmo assim.
+
+[02:17] Deixar eu ver se em outro navegador consigo reproduzir isso para você ver a mensagem. Ele vai exibir que esse certificado não tem um nome válido, sua conexão não é particular, eu não reconheço esse certificado, mas você pode vir em avançado e ir para localhost mesmo assim, e acessamos o endereço.
+
+[02:36] Dessa forma conseguimos conectar, conseguimos utilizar https. Um detalhe, eu poderia facilmente configurar para que sempre que eu acessar através dessa porta, que seria a padrão, a 80, faço um redirecionamento, mando um cabeçalho de redirecionamento para esse servidor. Isso é comum para que nós forcemos a utilização do https, é algo bastante comum, mas nesse caso vou manter assim para termos os dois serviços separados.
+
+[03:06] Dessa forma conseguimos gerar um certificado https, assinar ele, marcar como confiável no nosso computador e configurar o nginx através do certificado e a chave desse certificado, ambos com essas configurações simples. Claro, lembrando de ouvir a porta correta, se for o caso de não querermos que digite a porta, e sempre adicionar o ssl.
+
+@@06
+Faça como eu fiz
+
+Chegou a hora de você seguir todos os passos realizados por mim durante esta aula. Caso já tenha feito, excelente. Se ainda não, é importante que você execute o que foi visto nos vídeos para poder continuar com os próximos cursos que tenham este como pré-requisito
+
+Continue com os seus estudos, e se houver dúvidas, não hesite em recorrer ao nosso fórum!
+
+@@07
+O que aprendemos?
+
+Nesta aula, aprendemos:
+Conhecemos o funcionamento do HTTPS
+Aprendemos a gerar um certificado SSL
+Configuramos o Nginx para usar nosso certificado e chave para servir por HTTPS
+
+@@08
+Conclusão
+
+[00:00] Parabéns por chegar ao final deste treinamento de nginx, onde nos aprofundamos um pouco nos nossos conhecimentos. Começamos mexendo um pouco no nosso load balancer, vamos dar uma olhada no arquivo dele, porque vimos além de outros algoritmos de load balancer servidores de backup, vimos sobre o tempo de falha, aprendemos sobre round Robin, waited round Robin, vimos sobre o least connections, vimos bastante coisa.
+[00:28] Além disso, aprendemos sobre o fast CGI, e no final das contas configuramos um fast CGI proxy, como se fosse um proxy reverso para um fast CGI, para um servidor que recebe requisições desse tipo, utilizando esse protocolo, que é um protocolo de comunicação entre processos, basicamente, através da rede, e já pegando um gancho aqui também aprendemos a utilizar cache do lado do servidor, para transformar no nginx em um servidor de cache, e não só um load balancer, não só um proxy reverso, não só um servidor web.
+
+[01:02] Estamos vendo quanta coisa o nginx pode fazer. Mas antes disso aprendemos algumas coisas bem interessantes sobre performance. Nesse ponto de performance vimos sobre compressão dos nossos dados através do gzip e vimos como informar o que será comprimido. Vimos sobre keep alive connections, manter as conexões abertas, falamos sobre cache http com a diretiva expires, falamos de cache control public, etc.
+
+[01:30] No final do treinamento batemos um papo bem rápido sobre https, ssl, geração de certificados e essa parte de segurança, que é o mínimo que precisamos saber quando vamos colocar algo no ar. Claro que não utilizamos uma entidade certificadora aqui para não ter custos ou super complicar, e também para não precisarmos de um domínio real, porque estamos usando o localhost, ou seja, nossa própria máquina.
+
+[01:54] Depois de tudo isso espero que você tenha aproveitado bastante, e caso tenha ficado com alguma dúvida não hesite, você pode abrir um tópico no fórum, eu tento responder pessoalmente sempre que possível, mas quando não consigo nós temos uma comunidade bem solicita de alunos, moderadores, instrutores, e com certeza alguém vai conseguir te ajudar. Mais uma vez parabéns por ter chegado até o final desse treinamento, obrigado por ter me aguentado até aqui, e espero te ver em outros conteúdos da Alura. Forte abraço.
