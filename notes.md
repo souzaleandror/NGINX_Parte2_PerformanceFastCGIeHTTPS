@@ -563,3 +563,145 @@ Relembramos como enviar cabeçalhos HTTP
 Conhecemos e habilitamos a compressão com gzip
 Aprendemos a configurar o número de processos do Nginx
 Vimos as vantagens de manter uma conexão HTTP aberta
+
+#### 27/08/2023
+
+@04-Cache
+
+@@01
+Caminho de cache
+
+[00:00] Boas-vindas de volta a mais um capítulo deste treinamento, onde estamos brincando com um servidor nginx, esse servidor web, que além de ser um servidor web também serve como proxy reverso, load balancer e outra coisa que vamos ver agora que é como servidor de cache.
+[00:15] Podemos criar inclusive cdns utilizando nginx, mas isso já fugiria do escopo deste treinamento, então vamos focar com calma na parte de cache. Só para recapitular o conceito de cache, vamos pegar esse exemplo do cache HTTP. O navegador fez um cache dessa imagem, nós sabemos, nós configuramos isso.
+
+[00:38] Posso com tranquilidade vir e apagar essa imagem. Repare que estou na pasta mesmo, apaguei a imagem, quando atualizo o navegador continua exibindo ela, porque essa imagem está no cache, não está indo no servidor. Agora se vier e disser que vou desabilitar o cache, quando atualizo não encontra mais.
+
+[00:58] Conceito de cache recapitulado. Agora imagina um cenário onde tenho uma URL que o processamento dela demora. É o mesmo processamento para todo mundo que vai acessar, só que ele demora, é feito por um servidor de aplicação, precisa fazer uma query, alguma coisa do tipo.
+
+[01:15] Imagine o site da Alura. Eu venho, carreguei esse HTML. Independente de ser eu, você ou qualquer outra pessoa acessando, essa página é a mesma, com o mesmo vídeo, com as mesmas categorias, com as mesmas formações aparecendo, com os mesmos patrocinadores, esse mesmo número de cursos. Ou seja, essas informações que são computadas no servidor são exibidas para todo mundo igual.
+
+[01:45] Então eu não preciso que esse cache seja guardado só no navegador, posso armazenar esse cache em um servidor central, no meu load balancer, por exemplo, ou algum proxy reverso que eu tenha, e quando outra pessoa fizer a requisição esse número de cursos já foi computado, essa query para buscar as formações já foi calculada e não preciso ficar indo no meu PHP, no Java, no Python, no Hub para fazer isso tudo de novo.
+
+[02:12] Quero fazer com que meu nginx faça isso, que ele atue como um cache. Por exemplo, quando acessar o meu servidor que está indo no meu fast CGI com php fpm, quero que acessei uma vez, essa minha configuração do PHP, do fpm que está mandando o fast CGI param, quero fazer com que ele armazene o cache de alguma forma, então esse cache precisa ser guardado em algum lugar dessa máquina, desse servidor. E sempre que essa requisição for feita para esse location quero informar que quero buscar aquele cache.
+
+[02:55] Vamos lá que são muitas coisas que precisamos fazer aqui, mas queria falar sobre o conceito primeiro. Como falei, dentro de um location vou poder informar que quero buscar o cache de alguma localização, mas antes disso preciso configurar uma localização de cache, e isso não fica dentro de location, isso não fica dentro de server, fica dentro de http, que é aquele que está no nginx.conf, aquele arquivo padrão.
+
+[03:20] Ou seja, posso colocar algo aqui fora. O que posso informar aqui? Na documentação do nginx, na verdade, é mais um tutorial, ele informa essa diretiva proxy_cache_path, e nós poderíamos utilizar ela sem problema, mas no nosso caso essa configuração de servidor não é um proxy reverso.
+
+[03:42] Se fosse o caso, eu utilizaria o proxy_cache_path, simples. No meu caso o que vou precisar é do fastcgi_cache_path, então vamos utilizar ele para realizar nossa configuração. O que preciso passar de informação? Preciso necessariamente de um caminho, obviamente, vou colocar em /tmp/cache, preciso passar o keys_zone, se não me engano é esse o nome, que vai informar o nome desse cache que vou salvar aqui e o tamanho dele.
+
+[04:18] Posso aumentar, diminuir, depende do seu cenário, eu vou botar 10mb que é um valor que tirei da cabeça. E eu poderia informar algumas outras várias coisas. Por exemplo, posso ter níveis de cache. Se informo dessa forma, 1, 2, por exemplo, /data/nginx/cache, informo que vou ter um cache de dois níveis, então dentro de cache ele vai criar duas pastas. Níveis diferentes.
+
+[04:45] Para separar o cache em vários níveis para o sistema operacional não ter uma pasta com vários arquivos, o que torna um pouco mais lento. Vamos configurar esse segundo nível de cache, esse cache de dois níveis no diretório. Vamos lá, cache de dois níveis aplicado.
+
+[05:05] Posso informar quanto tempo esse dado precisa estar inativo para se tornar inválido, posso informar muita coisa, só que por enquanto para mim isso é suficiente. Mas temos um detalhe que é o fastcgi_key, preciso informar que chave vai ser utilizada para fazer esse cache, posso utilizar a URL, por exemplo, bastante simples.
+
+[05:30] Mas repara que esse fastcgi_cache_key já entra em outro local de location, então vamos dar um passo atrás e entender o que está acontecendo aqui. Dentro do meu servidor, seja não de um serviço específico, ou seja, dentro do meu computador, da minha máquina, que está na diretiva http, vou informar onde quero guardar caches. Posso ter cache para fast CGI, posso ter proxy cache, e é na mesma lógica, poderia ter um proxy cache em outra pasta, ou até na mesma pasta sem problema, também usando dois níveis de cache.
+
+[06:14] E aí obviamente precisaria dar outro nome, isso poderia ser proxy, seria de 1mb só, ou seja, no meu computador, posso ter vários locais de cache onde posso armazenar as coisas. E esses vários locais podem ser compartilhados entre vários servers, ou seja, vários serviços, servidores, e em vários location diferentes.
+
+[06:35] Aqui configuramos a nossa máquina para ter esse espaço de cache. Vou tirar esse meu proxy porque só vou utilizar o fast CGI, e se der uma olhada em tmp cache tenho algumas coisas que estava fazendo nos testes, então vou remover esse tmp cache.
+
+[06:55] Removi essa pasta, se venho em tmp, não tenho mais a pasta cache. Se tento acessar não existe. Quando faço agora um nginx reload, o que vai acontecer? Ele cria essa pasta de cache já para mim. Repare que ele cria ela por enquanto vazia, mas agora essa pasta existe e está pronta para o nginx manipular, fazer o que quiser, adicionar arquivos, ler arquivos, remover arquivos, etc.
+
+[07:25] Nós começamos a dar o primeiro passo para transformar nosso servidor nginx em um servidor de cache. Dado esse primeiro passo no próximo vídeo nós vamos efetivamente fazer esse cache funcionar.
+
+@@02
+Cache no servidor
+
+Vimos neste vídeo que é possível transformar nosso servidor em um servidor de cache, armazenando dados de resposta para não reprocessar determinadas requisições.
+Em que cenário faz sentido armazenar cache no servidor?
+
+Em nenhum cenário faz sentido realizar cache no servidor. Este papel é do cliente (navegador).
+ 
+Alternativa correta
+Em todo o nosso site é recomendado ter tanto cache no servidor quanto no cliente (navegador).
+ 
+Alternativa errada! Nem sempre vamos querer cachear alguma requisição. Informações que dependem do usuário logado ou que mudam constantemente não devem ser cacheadas.
+Alternativa correta
+Em URLs que precisam de processamento e não mudam de usuário para usuário.
+ 
+Alternativa correta! A página inicial da Alura é um ótimo exemplo. Nós não precisamos realizar todas as queries de cursos, formações, etc o tempo todo. Podemos executar uma vez só e armazenar o html montado em cache.
+
+@@03
+Usando o cache
+
+[00:00] Boas-vindas de volta. Já fizemos a primeira etapa, que é configurar o local onde esse cache vai ser armazenado. Agora podemos ir à configuração. E aqui sempre que eu acessar esse location que faz o fast CGI pass posso utilizar aquele cache. Então posso utilizar o fastcgi_cache e vou utilizar aqui o nome da zona que estou utilizando, que é o fpm.
+[00:30] Só que aqui quando eu tentar fazer um reload ele vai dar um aviso, que não tenho nenhum fastcgi_cache_key, ou seja, como o nginx vai identificar cada uma das requisições para realizar o cache? Ou seja, todas as requisições para a mesma URL vão entrar nesse cache ou tem que ser usando o mesmo método? O verbo http. E se o host mudar?
+
+[00:55] Podemos adicionar essa informação aqui no fastcgi_cache_key, então vamos nessa fazer isso. Nesse cache_key informamos qual vai ser a chave do cache, ou seja, quais informações precisam bater para chegarmos nesse cache. Precisa ser sempre o mesmo método http para a mesma URL? Então vamos fazer isso. Se você der uma olhada na documentação, temos como exemplo somente o request_uri, podemos fazer somente isso, tudo para essa URL vai cair nesse cache.
+
+[01:28] Mas eu vou incrementar um pouco e adicionar o cache_key como request_method e request_uri. Vamos lá, se não escrevi nada errado vamos ter esse cache sendo implementado agora. Repare que no nosso fpm vou dar enters para separarmos o pré-cache e o pós-cache, vou fazer uma requisição, se tudo der certo e nada der errado, requisição funcionando.
+
+[01:55] Aqui vejo que uma requisição realmente foi feita. Agora quando tento de novo, quando atualizo repare que a resposta foi um pouco mais rápida, não sei se deu para perceber, mas quando venho aqui ainda não está sendo feito o cache. Vamos ver o que aconteceu na configuração, tenho o fastcgi_cache, tenho o fastcgi_cache_key e tenho o cache_path, vamos ver se utilizei o mesmo nome.
+
+[02:20] A princípio está tudo certo, vamos ver o que deu mole aqui. Deixa eu trocar a key somente para o request_uri para ver se não digitei nada errado. Eu estava me esquecendo de um parâmetro bastante importante. Como nós estamos tratando do fastcgi_cache e não proxy_cache preciso informar também quais códigos de resposta vão ser cacheados por quanto tempo, porque ele não vai ter um padrão assim como proxy_cache.
+
+[03:02] Vamos lá, o que posso informar? Posso vir na documentação dar uma olhada nesse fastcgi_cache_valid, o que preciso informar? Quais códigos http vão ser cacheados, por quanto tempo. Se eu quiser cachear tudo posso mandar um n, e se eu quiser cachear apenas o que ele traz por padrão de sugestão, que são 200, 301 e 302, eu informo somente o tempo.
+
+[03:30] Vamos fazer exatamente isso. Vou transformar em um cache válido somente aquelas respostas padrão, mas não por cinco minutos, vou deixar por um minuto. Vou remover tudo que tem dentro de cache. Meu tmp cache está vazio, e agora quando acesso o meu php info, quando faço um ls de novo tenho o meu 8, que é uma pasta, e se eu fizer um ls recursivo lá dentro tenho o meu arquivo cacheado.
+
+[04:02] Posso tentar acessar ele, por exemplo, para você dar uma olhada no que tem lá dentro. Tem toda aquela minha resposta http já montada com html que foi cacheado nesse arquivo. Com isso repare que agora quando dou enters no meu php fpm e faço a requisição de novo, repare que nenhuma requisição nova aparece aqui.
+
+[04:25] De novo, atualizo, mas nenhuma requisição aparece. Agora, se eu vier e remover o cache de novo, quando fizer a requisição vai aparecer uma nova linha. Com isso o que atinjo? Qual objetivo atinjo? Sempre que alguém acessar meu index, que é um conteúdo que precisa de computação, então ele merece ser cacheado, só que ele não precisa ser cacheado só pelo navegador, pode ser cacheado direto no servidor, eu consigo, ou seja, todos os usuários que acessarem isso não vão precisar esperar o processamento daquelas informações.
+
+[05:02] Eles já podem acessar direto a versão cacheada. Agora conseguimos inclusive enviar informações desse cache, se esse cache está sendo utilizado ou não. Conseguimos mandar essas informações com cabeçalhos http, por exemplo. E isso é especialmente útil quando queremos fazer algum tipo de debug, porque no meu caso é fácil fazer debug, posso ver se a requisição foi feita ou não, estou na mesma máquina, mas às vezes estamos criando um servidor de cache para uma máquina externa onde não temos acesso aos logs, etc.
+
+[05:30] Então podemos enviar esses dados, analisar esses dados de cache. Vamos fazer isso no próximo vídeo.
+
+@@04
+Verificando o status
+
+[00:00] Boas-vindas de volta. Vamos dar uma analisada em uma funcionalidade. Não é bem uma funcionalidade, algo que podemos fazer para nos ajudar às vezes a fazer algum tipo de debug, etc. Um detalhe importante de citar é que quando estamos fazendo um servidor de cache precisamos tomar cuidado se temos vários conteúdos sendo modificados na origem, mas alguns ainda estão sendo cacheados e outros não foram cacheados, podemos acabar tendo um conteúdo misturado, isso é perigoso.
+[00:30] Na versão comercial do nginx existe uma forma de você remover o cache a partir de uma requisição HTTP, então, por exemplo, sempre que um arquivo foi modificado lá na origem ele pode fazer uma requisição para esse servidor e fazer a limpeza do cache.
+
+[00:48] Na versão gratuita precisamos contar com a inspiração. Mas para o nosso cenário não vai ser problema. E para os cenários onde isso é um problema existe a solução comercial que é simples de implementar. Vamos nessa.
+
+[01:00] O que quero fazer é visualizar através dos cabeçalhos http o status do cache, então vamos lá. Como posso fazer isso? Posso adicionar cabeçalhos http, como já sabemos, vamos na nossa configuração, posso adicionar um header. Quero adicionar o cabeçalho X-cache-Status, e vou adicionar como valor o upstream_cache_status.
+
+[01:30] Esse cabeçalho é um cabeçalho que estou inventando, e já comentei no treinamento anterior que todos os cabeçalhos que são personalizados, que tem significado personalizado dependendo de quem está implementando devem começar com x, isso significa que eles não fazem parte da especificação http. Ou seja, eu que criei esse cabeçalho aqui.
+
+[01:50] E o valor dele é um valor que o nginx consegue trazer para nós, uma variável que o nginx consegue trazer para nós, que é o status do cache para o upstream que está configurado aqui. No nosso cenário, como é um proxy fast CGI não tenho nenhum upstream com load balancer e etc., mas o nome da variável é esse, upstream_cache_status.
+
+[02:15] Com isso consigo adicionar esse cabeçalho, vamos salvar, fazer o reload, torcer para eu não ter escrito nada errado e vamos dar uma olhada no nosso cabeçalho. Quando atualizo, vejo o nosso cache status como expired, o que faz sentido, porque configurei o cache para esperar em um minuto, e já tem mais de um minuto desde o último vídeo até esse.
+
+[02:40] Quando eu fizer uma atualização de novo, como esse cache foi atualizado, quando atualizo tenho um hit, ou seja, agora ele pegou o cache, ele não está utilizando o conteúdo do meu PHP fpm, ele está utilizando o conteúdo que foi cacheado.
+
+[02:58] Agora, se eu remover o meu cache o que vai acontecer? Quando atualizo ele vai dar um miss, ou seja, o conceito de cache miss é que tentei encontrar um cache, mas não achei. Então nesse cenário não tinha cache, e o que acontece? Ele vai no servidor, faz a requisição utilizando o fast CGI, recebe a resposta, faz o cache e me devolve.
+
+[03:25] Quando atualizo de novo tenho o cache hit. Dessa forma além de ver diretamente no PHP fpm que está funcionando consigo mandar a informação para o cliente para que façamos algum tipo de debug, etc.
+
+[03:36] Temos tratado bastante de performance, falamos de performance http, falamos de cache do lado do servidor, inclusive seu propósito, mas também tem um assunto que é muito importante além de performance, que é segurança, e temos utilizado http aqui, como configuramos https no nginx? Porque por enquanto isso ainda não está funcionando. Vamos conversar sobre esse assunto no próximo capítulo.
+
+@@05
+Header de status
+
+Neste vídeo nós configuramos o Nginx para sempre enviar na resposta o status do cache para a requisição em questão.
+Para que enviamos essa informação?
+
+Para podermos depurar quando necessário.
+ 
+Alternativa correta! Se precisarmos saber se um cache está sendo encontrado ou não, ter um cabeçalho na resposta é uma forma bem fácil de obter essa informação.
+Alternativa correta
+Para o navegador saber como cachear também.
+ 
+Alternativa correta
+Não há motivo real para termos feito isso.
+ 
+Parabéns, você acertou!
+
+@@06
+Faça como eu fiz
+
+Chegou a hora de você seguir todos os passos realizados por mim durante esta aula. Caso já tenha feito, excelente. Se ainda não, é importante que você execute o que foi visto nos vídeos para poder continuar com a próxima aula.
+
+Continue com os seus estudos, e se houver dúvidas, não hesite em recorrer ao nosso fórum!
+
+@@07
+O que aprendemos?
+
+Nesta aula, aprendemos:
+Entendemos o propósito de um servidor de cache
+Aprendemos a definir um diretório para armazenar nosso cache
+Vimos como usar cache em determinado servidor
+Aprendemos a verificar o status do cache em cada requisição
